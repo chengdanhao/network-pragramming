@@ -16,44 +16,49 @@ int main() {
 	struct sockaddr_in serv_addr, cli_addr;
 	int n;
 
+	// create socket
 	master_sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (master_sock < 0) {
-		perror("creating socket error");
+		perror("socket");
 		exit(1);
 	}
 
+	// fill struct
 	bzero(&serv_addr, sizeof(serv_addr));
 	serv_addr.sin_family = AF_INET;
 	serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 	serv_addr.sin_port = htons(PORT);
 
+	// bind
 	if (bind(master_sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr))) {
-		perror("bind error");
+		perror("bind");
 		exit(1);
 	}
 
+	// listen
 	listen(master_sock, 5);
 
+	// accept
 	clilen = sizeof(cli_addr);
 	new_sock = accept(master_sock, (struct sockaddr*)&cli_addr, &clilen);
 	if (new_sock < 0) {
-		perror("accept error");
+		perror("accept");
 		exit(1);
 	}
 
-	bzero(recv_buf, BUF_LEN);
-	n = read(new_sock, recv_buf, BUF_LEN);
+	bzero(recv_buf, sizeof(recv_buf));
+	n = read(new_sock, recv_buf, sizeof(recv_buf) - 1);
 	if (n < 0) {
-		perror("reading from socket");
+		perror("read");
 		exit(1);
 	}
 
-	printf("message is : %s.\n", recv_buf);
+	printf("Receive message : %s.\n", recv_buf);
 
 	char *response = "I got your message";
-	n = write(new_sock, response, sizeof(response));
+	n = write(new_sock, response, strlen(response));
 	if (n < 0) {
-		perror("writing to socket error");
+		perror("write");
 		exit(1);
 	}
 
