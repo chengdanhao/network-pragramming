@@ -13,6 +13,7 @@
 
 #define BACKLOG 10
 #define CLIENTS_NUM 30
+#define MSG "Connection Established!"
 
 int main(int argc, char* argv[]) {
 	ssize_t nread;
@@ -35,7 +36,7 @@ int main(int argc, char* argv[]) {
 
 	bzero((char*)&serv_addr, 0);
 	serv_addr.sin_family = AF_INET;
-	serv_addr.sin_addr = htonl(IN_ADDR);
+	serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 	serv_addr.sin_port = htons(PORT);
 
 	if (bind(master_sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr))) {
@@ -54,7 +55,7 @@ int main(int argc, char* argv[]) {
 		FD_SET(master_sock, &rfds);
 
 		maxfd = master_sock;
-		
+
 		// add child sockets to set
 		for (i = 0; i < CLIENTS_NUM; i++) {
 			sd = cli_socks[i];
@@ -80,16 +81,31 @@ int main(int argc, char* argv[]) {
 			case 0:
 				break;	// loop again
 			default:
-				// ...
-				break;
-		}
+				// new connection comes.
+				if (FD_ISSET(master_sock, &rfds)) {
+					new_sock = accept(master_sock, (struct sockaddr*)&cli_addr, &cli_len);
+					if (new_sock < 0) {
+						perror("accept");
+						exit(-1);
+					}
 
-		new_sock = accept(master_sock, (struct sockaddr*)&cli_addr, &cli_len);
-		if (new_sock < 0) {
-			perror("accept");
-			exit(-1);
-		}
-	}
+					printf("new connection, sockfd = %d, ip = %d, port = %d.\n", 
+							new_sock, inet_ntop(cli_addr.sin_addr), ntohl(cli_addr.sin_port));
+
+					if (send(new_sock, MSG, strlen(MSG), 0)) {
+						perror("send");
+					}
+
+					FD_SET(new_sock, &rfds);
+
+				}
+
+				// clients activity
+				// do sth...
+
+				break;
+		} // end of switch
+	} // end of while(1)
 
 	exit(0);
 }
