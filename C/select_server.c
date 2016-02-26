@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+#include <strings.h>
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
@@ -13,7 +13,9 @@
 
 #define BACKLOG 10
 #define CLIENTS_NUM 30
-#define MSG "Connection Established!"
+
+#define ACCEPT_MSG "Connection Established!"
+#define REFUSE_MSG "Refuse, connection numbers reach the upper limit!"
 
 int main(int argc, char* argv[]) {
 	ssize_t nread;
@@ -21,7 +23,7 @@ int main(int argc, char* argv[]) {
 	socklen_t cli_len;
 	char recv_buf[BUF_SIZE] = {'\0'};
 	char send_buf[BUF_SIZE] = {'\0'};
-	int master_sock, new_sock;
+	int i, cur_conn_cnt, master_sock, new_sock;
 	int sd, max_sd, cli_socks[CLIENTS_NUM];
 	struct sockaddr_in serv_addr, cli_addr;
 	struct fd_set rfds;
@@ -79,7 +81,8 @@ int main(int argc, char* argv[]) {
 				perror("select");
 				exit(-1);
 			case 0:
-				break;	// loop again
+				// timeout, just loop again
+				break;
 			default:
 				// new connection comes.
 				if (FD_ISSET(master_sock, &rfds)) {
@@ -89,19 +92,54 @@ int main(int argc, char* argv[]) {
 						exit(-1);
 					}
 
+					// Do connection numbers reach the upper limit?
+					if (cur_conn_cnt > CLIENTS_NUM - 1) {
+						printf(REFUSE_MSG);
+
+						if (send(new_sock, REFUSE_MSG, strlen(REFUSE_MSG), 0)) {
+							perror("send refuse message");
+						}
+
+						printf(REFUSE_MSG);
+						close(new_sock);
+						continue;
+					}
+
+					// not reach the upper limit, accept the socket.
 					printf("new connection, sockfd = %d, ip = %d, port = %d.\n", 
 							new_sock, inet_ntop(cli_addr.sin_addr), ntohl(cli_addr.sin_port));
 
-					if (send(new_sock, MSG, strlen(MSG), 0)) {
-						perror("send");
+					if (send(new_sock, ACCEPT_MSG, strlen(ACCEPT_MSG), 0)) {
+						perror("send accept message");
 					}
 
 					FD_SET(new_sock, &rfds);
 
+					// current connection count
+					cur_conn_cnt++;
+
+					// renew the value of maxsd
+					if (new_sock > max_sd) {
+						max_sd = new_sock;
+					}
 				}
 
-				// clients activity
-				// do sth...
+				// client sockets
+				for (i = 0; i < cur_conn_cnt; i++) {
+					sd = cli_socks[i];
+
+					if (0 == FD_ISSET(sd, &rfds)) {
+						continue;
+					}
+
+					if (recv(sd, recv_buf, sizeof(recv_buf) - 1, 0) <= 0) {
+						perror("recv");
+						FD_CLR(sd, &rfds);
+						close(sd);
+						cli_socks[i] = 0;
+					}
+
+				}
 
 				break;
 		} // end of switch
