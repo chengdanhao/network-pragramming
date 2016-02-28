@@ -61,7 +61,7 @@ int main(int argc, char* argv[]) {
 		bzero(send_buf, sizeof(send_buf));
 		fgets(send_buf, sizeof(send_buf) - 1, stdin);
 
-		if (0 == strcmp(send_buf, "exit")) {
+		if (0 == strcmp(send_buf, "exit\n")) {
 			printf("exit client.\n");
 			close(master_sock);
 			exit(0);

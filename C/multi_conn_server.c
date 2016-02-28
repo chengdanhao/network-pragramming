@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h> 		//read, write
+#include <signal.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>		// hotnl, hotns
 
@@ -9,12 +10,20 @@
 #define BUF_SIZE 256
 
 void process(int sock);
+void sig_child(int sig_no);
+void sig_inter(int sig_no);
+
+int master_sock, new_sock;
 
 int main(int argc, char* argv[]) {
-	int master_sock, new_sock, n;
+	// int master_sock, new_sock, n;
+	int n;
 	struct sockaddr_in serv_addr, cli_addr;
 	socklen_t cli_len;
 	pid_t pid;
+
+	signal(SIGCHLD, sig_child);
+	signal(SIGINT, sig_inter);
 
 	master_sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (master_sock < 0) {
@@ -83,4 +92,27 @@ void process(int sock) {
 		perror("write");
 		exit(1);
 	}
+}
+
+void sig_child(int sig_no) {
+	pid_t pid;
+	int stat;
+
+	if (SIGCHLD == sig_no) {
+		printf("recv SIGCHLD signal.\n");
+	}
+
+	while ((pid = waitpid(-1, &stat, WNOHANG)) > 0) {
+		printf("process (%d) terminate.\n", pid);
+	}
+}
+
+void sig_inter(int sig_no) {
+
+	if (SIGINT == sig_no) {
+		printf("recv SIGINT signal.\n");
+	}
+
+	close(new_sock);
+	close(master_sock);
 }
