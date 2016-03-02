@@ -10,22 +10,47 @@
 #define PORT 10001
 #define BUF_SIZE 256
 
+#define CONNECT
+
 void dg_cli(FILE* fp, int sockfd, struct sockaddr* servaddr, socklen_t servlen) {
 	int n;
 	char recv_msg[BUF_SIZE];
 	char send_msg[BUF_SIZE];
 
+#ifdef CONNECT
+	if (connect(sockfd, servaddr, servlen) < 0) {
+		perror("connect");
+		exit(-1);
+	}
+
+#endif
+
 	while (fgets(send_msg, sizeof(send_msg), fp) != NULL) {
 
+#ifdef CONNECT
+		if (write(sockfd, send_msg, strlen(send_msg)) < 0) {
+			perror("write");
+			exit(-1);
+		}
+#else
 		// 客户可以显式地调用bind，这里没有，内核为它选择一个随机端口
 		sendto(sockfd, send_msg, strlen(send_msg), 0, servaddr, servlen);
+#endif
 		printf("[client] send_msg = %s.\n", send_msg);
 
 		bzero((void *)recv_msg, sizeof(recv_msg));
 
+#ifdef CONNECT
+		if (read(sockfd, recv_msg, sizeof(recv_msg)) < 0) {
+			perror("read");
+			exit(-1);
+		}
+#else
 		// 第五和第六个参数为NULL，这将告知内核我们不关心数据报由谁发送。
 		// 风险：任何进程都可以想本客户端的IP和端口发送数据报
 		n = recvfrom(sockfd, recv_msg, sizeof(recv_msg), 0, NULL, NULL);
+#endif
+
 		printf("[client] recv_msg = %s.\n", recv_msg);
 	}
 }
