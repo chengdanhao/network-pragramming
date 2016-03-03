@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h> 		//read, write
 #include <signal.h>
+#include <errno.h>			// errno
 #include <sys/socket.h>
 #include <arpa/inet.h>		// hotnl, hotns
 
@@ -53,6 +54,8 @@ int main(int argc, char* argv[]) {
 		if (new_sock < 0) {
 			perror("accpet");
 			exit(1);
+		} else if (EINTR == errno){
+			continue;
 		}
 
 		pid = fork();
