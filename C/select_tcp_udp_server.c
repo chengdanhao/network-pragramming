@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <signal.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -21,15 +22,21 @@ void sig_child(int signo) {
 
 }
 
+void process(int sockfd) {
+
+}
+
 int main(int argc, char* argv[]) {
 	ssize_t nrecv;
 	size_t nsend;
 	socklen_t cli_len;
+	pid_t pid;
 	char tcp_recv_buf[BUF_SIZE] = {'\0'};
 	char tcp_send_buf[BUF_SIZE] = {'\0'};
 	char udp_recv_buf[BUF_SIZE] = {'\0'};
 	char udp_send_buf[BUF_SIZE] = {'\0'};
-	int i, cur_conn_cnt = 0, listenfd, new_sock;
+	int i, cur_conn_cnt = 0;
+	int listenfd, udpfd, new_sock;
 	int sd, max_sd, cli_socks[MAX_CLIENTS_NUM];
 	struct sockaddr_in serv_addr, cli_addr;
 	int opt;
@@ -158,10 +165,10 @@ int main(int argc, char* argv[]) {
 				// new UDP connection comes
 				if (FD_ISSET(listenfd, &rfds)) {
 					cli_len = sizeof(cli_addr);
-					n = recvfrom(sockfd, udp_recv_buf, sizeof(udp_recv_buf), 0, cli_addr, &cli_len);
-					if (n < 0) {
+					nrecv = recvfrom(udpfd, udp_recv_buf, sizeof(udp_recv_buf), 0, (struct sockaddr*)&cli_addr, &cli_len);
+					if (nrecv < 0) {
 						perror("recvfrom");
-						close(sockfd);
+						close(udpfd);
 						exit(-1);
 					}
 
@@ -170,7 +177,7 @@ int main(int argc, char* argv[]) {
 					sprintf(udp_send_buf, "ECHO BACK : %s", udp_recv_buf);
 
 					// 最后一个参数不是指针
-					n = sendto(sockfd, udp_send_buf, strlen(udp_send_buf), 0, cli_addr, cli_len);
+					nsend = sendto(udpfd, udp_send_buf, strlen(udp_send_buf), 0, (struct sockaddr*)&cli_addr, cli_len);
 					printf("[server] udp_send_buf = %s.\n", udp_send_buf);
 
 
