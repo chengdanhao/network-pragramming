@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <signal.h>
+#include <errno.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -18,12 +19,49 @@
 #define ACCEPT_MSG "Accept, connection established!"
 #define REFUSE_MSG "Refuse, connection numbers reach the upper limit!"
 
-void sig_child(int signo) {
 
+void sig_child(int sig_no) {
+	pid_t pid;
+	int stat;
+
+	if (SIGCHLD == sig_no) {
+		printf("recv SIGCHLD signal.\n");
+	}
+
+	while ((pid = waitpid(-1, &stat, WNOHANG)) > 0) {
+		printf("process (%d) terminate.\n", pid);
+	}
 }
 
-void process(int sockfd) {
+void process(int sock) {
+	int n;
+	char recv_buf[BUF_SIZE] = {'\0'};
+	char* response = "I got your message";
 
+	while (1) {
+		bzero(recv_buf, sizeof(recv_buf));
+		n = read(sock, recv_buf, sizeof(recv_buf) - 1);
+		if (0 == n) {
+			printf("client has been closed.\n");
+			break;
+		} else if (n < 0 && EINTR == errno) {
+			continue;
+		} else if (n < 0) {
+			perror("read");
+			close(sock);
+			exit(-1);
+		}
+
+		printf("Received message: %s.\n", recv_buf);
+
+		n = write(sock, response, strlen(response));
+		if (n < 0) {
+			perror("write");
+			exit(-1);
+		}
+	}
+
+	close(sock);
 }
 
 int main(int argc, char* argv[]) {
@@ -35,12 +73,12 @@ int main(int argc, char* argv[]) {
 	char tcp_send_buf[BUF_SIZE] = {'\0'};
 	char udp_recv_buf[BUF_SIZE] = {'\0'};
 	char udp_send_buf[BUF_SIZE] = {'\0'};
-	int i, cur_conn_cnt = 0;
+	int cur_conn_cnt = 0;
 	int listenfd, udpfd, new_sock;
-	int sd, max_sd, cli_socks[MAX_CLIENTS_NUM];
+	int max_sd ;
 	struct sockaddr_in serv_addr, cli_addr;
 	int opt;
-	fd_set rfds, active_fds;
+	fd_set rfds;
 
 	/*
 	 * TCP SOCKET
@@ -78,7 +116,7 @@ int main(int argc, char* argv[]) {
 	 */
 
 	udpfd =  socket(AF_INET, SOCK_DGRAM, 0);
-	if (listenfd < 0) {
+	if (udpfd < 0) {
 		perror("[ERROR] UDP SOCKET");
 		exit(-1);
 	}
@@ -95,9 +133,6 @@ int main(int argc, char* argv[]) {
 
 	signal(SIGCHLD, sig_child);
 
-	FD_ZERO(&active_fds);
-
-	memset(cli_socks, -1, sizeof(cli_socks));
 	max_sd = listenfd > udpfd ? listenfd : udpfd;
 
 	while(1) {
@@ -106,15 +141,19 @@ int main(int argc, char* argv[]) {
 
 		/*
 		 * > 0  : Success, the number of file descriptors contained in the three descriptor sets.
-		 * = 0  : the timeout expires before anything interesting happens.  
+		 * = 0  : the timeout expires before anything interesting happens.
 		 * = -1 : errno is set to indicate the error; the file descriptor sets are unmodified, and timeout becomes undefined.
-		 * 
+		 *
 		 * the 1st argument can simply set to FD_SETSIZE
 		 */
 		switch (select(max_sd + 1, &rfds, NULL, NULL, /* &tv */NULL)) {
 			case -1:
-				perror("[ERROR] select");
-				exit(-1);
+				if (EINTR == errno) {	// without this condition, it will throw error interrupted system call
+					continue;
+				} else {
+					perror("[ERROR] select");
+					exit(-1);
+				}
 			case 0:
 				// timeout, just loop again
 				printf("timeout.");
@@ -141,7 +180,7 @@ int main(int argc, char* argv[]) {
 						continue;
 					} else {
 						// not reach the upper limit, accept the socket.
-						printf("new connection, sockfd = %d, ip = %s, port = %d.\n", 
+						printf("new tcp connection, sockfd = %d, ip = %s, port = %d.\n",
 								new_sock, inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port));
 
 						pid = fork();
@@ -152,7 +191,11 @@ int main(int argc, char* argv[]) {
 							case 0:
 								// child
 								close(listenfd);
+								cur_conn_cnt++;
+								printf("[ADD] connection number : %d.\n", cur_conn_cnt);
 								process(new_sock);
+								cur_conn_cnt--;
+								printf("[DEL] connection number : %d.\n", cur_conn_cnt);
 								exit(0);    // 这里必须要exit，仔细思考
 							default:
 								// parent
@@ -163,7 +206,7 @@ int main(int argc, char* argv[]) {
 
 
 				// new UDP connection comes
-				if (FD_ISSET(listenfd, &rfds)) {
+				if (FD_ISSET(udpfd, &rfds)) {
 					cli_len = sizeof(cli_addr);
 					nrecv = recvfrom(udpfd, udp_recv_buf, sizeof(udp_recv_buf), 0, (struct sockaddr*)&cli_addr, &cli_len);
 					if (nrecv < 0) {
