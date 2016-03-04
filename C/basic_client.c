@@ -20,20 +20,20 @@ int main(int argc, char* argv[]) {
 
 	if (argc < 2) {
 		printf("Usage: %s <HOSTNAME>.\n", argv[0]);
-		exit(1);
+		exit(-1);
 	}
 
 	// socket
 	master_sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (master_sock < 0) {
 		perror("socket");
-		exit(1);
+		exit(-1);
 	}
 
 	server = gethostbyname(argv[1]);
 	if (NULL == server) {
 		perror("gethostbyname");
-		exit(1);
+		exit(-1);
 	}
 
 	bzero((char*)&serv_addr, sizeof(serv_addr));
@@ -44,29 +44,37 @@ int main(int argc, char* argv[]) {
 	// connect
 	if (connect(master_sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
 		perror("connect");
-		exit(1);
+		exit(-1);
 	}
 
-	printf("Please enter the mssage: ");
-	bzero(send_buf, sizeof(send_buf));
-	fgets(send_buf, sizeof(send_buf) - 1, stdin);
-	
-	// send message
-	n = write(master_sock, send_buf, strlen(send_buf));
-	if (n < 0) {
-		perror("write");
-		exit(1);
+	while (1) {
+		printf("Please enter the mssage: ");
+		bzero(send_buf, sizeof(send_buf));
+		fgets(send_buf, sizeof(send_buf) - 1, stdin);
+
+		if (0 == strcmp(send_buf, "exit\n")) {
+			printf("exit!\n");
+			close(master_sock);
+			exit(0);
+		}
+
+		// send message
+		n = write(master_sock, send_buf, strlen(send_buf));
+		if (n < 0) {
+			perror("write");
+			exit(-1);
+		}
+
+		// recv response
+		bzero(recv_buf, sizeof(recv_buf));
+		n = read(master_sock, recv_buf, sizeof(recv_buf) - 1);
+		if (n < 0) {
+			perror("read");
+			exit(-1);
+		}
+
+		printf("Receive message: %s.\n", recv_buf);
 	}
 
-	// recv response
-	bzero(recv_buf, sizeof(recv_buf));
-	n = read(master_sock, recv_buf, sizeof(recv_buf) - 1);
-	if (n < 0) {
-		perror("read");
-		exit(1);
-	}
-
-	printf("Receive message: %s.\n", recv_buf);
-	
 	return 0;
 }
