@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <errno.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -79,8 +80,12 @@ int main(int argc, char* argv[]) {
 		 */
 		switch (select(max_sd + 1, &rfds, NULL, NULL, /* &tv */NULL)) {
 			case -1:
-				perror("ERROR select");
-				exit(-1);
+				if (EINTR == errno) {	// without this condition, it will throw error interrupted system call
+					continue;
+				} else {
+					perror("[ERROR] select");
+					exit(-1);
+				}
 			case 0:
 				// timeout, just loop again
 				printf("timeout.");

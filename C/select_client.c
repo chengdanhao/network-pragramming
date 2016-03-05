@@ -51,7 +51,15 @@ int main(int argc, char* argv[]) {
 		// recv response
 		bzero(recv_buf, sizeof(recv_buf));
 		n = read(master_sock, recv_buf, sizeof(recv_buf) - 1);
-		if (n < 0) {
+		if (0 == strncmp(recv_buf, "Refuse", strlen("Refuse"))) {
+			printf("server refuse your connection.\n");
+			close(master_sock);
+			exit(0);
+		} else if (0 == n) {
+			printf("server has closed.\n");
+			close(master_sock);
+			exit(0);
+		} else if (n < 0) {
 			perror("read");
 			exit(-1);
 		}
