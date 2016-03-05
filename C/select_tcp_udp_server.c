@@ -14,11 +14,6 @@
 #define PORT 10001
 
 #define BACKLOG 5
-#define MAX_CLIENTS_NUM 3
-
-#define ACCEPT_MSG "Accept, connection established!"
-#define REFUSE_MSG "Refuse, connection numbers reach the upper limit!"
-
 
 void sig_child(int sig_no) {
 	pid_t pid;
@@ -52,33 +47,33 @@ void process(int sock) {
 			exit(-1);
 		}
 
-		printf("Received message: %s.\n", recv_buf);
+		printf("[TCP]received message: %s.\n", recv_buf);
 
 		n = write(sock, response, strlen(response));
 		if (n < 0) {
 			perror("write");
 			exit(-1);
 		}
+
+		printf("[TCP]send message: %s.\n", response);
 	}
 
 	close(sock);
 }
 
 int main(int argc, char* argv[]) {
-	ssize_t nrecv;
-	size_t nsend;
-	socklen_t cli_len;
+	int opt;
 	pid_t pid;
+	fd_set rfds;
+	ssize_t nrecv;
+	ssize_t nsend;
+	socklen_t cli_len;
+	int max_sd, listenfd, udpfd, new_sock;
+	struct sockaddr_in serv_addr, cli_addr;
 	char tcp_recv_buf[BUF_SIZE] = {'\0'};
 	char tcp_send_buf[BUF_SIZE] = {'\0'};
 	char udp_recv_buf[BUF_SIZE] = {'\0'};
 	char udp_send_buf[BUF_SIZE] = {'\0'};
-	int cur_conn_cnt = 0;
-	int listenfd, udpfd, new_sock;
-	int max_sd ;
-	struct sockaddr_in serv_addr, cli_addr;
-	int opt;
-	fd_set rfds;
 
 	/*
 	 * TCP SOCKET
@@ -168,39 +163,22 @@ int main(int argc, char* argv[]) {
 						exit(-1);
 					}
 
-					// Do connection numbers reach the upper limit?
-					if (cur_conn_cnt > MAX_CLIENTS_NUM - 1) {
-						printf(REFUSE_MSG".\n");
+					printf("new tcp connection, sockfd = %d, ip = %s, port = %d.\n",
+							new_sock, inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port));
 
-						if (send(new_sock, REFUSE_MSG, strlen(REFUSE_MSG), 0) < 0) {
-							perror("[ERROR] send refuse message");
-						}
-
-						close(new_sock);
-						continue;
-					} else {
-						// not reach the upper limit, accept the socket.
-						printf("new tcp connection, sockfd = %d, ip = %s, port = %d.\n",
-								new_sock, inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port));
-
-						pid = fork();
-						switch (pid) {
-							case -1:
-								perror("[ERROR] fork");
-								exit(-1);
-							case 0:
-								// child
-								close(listenfd);
-								cur_conn_cnt++;
-								printf("[ADD] connection number : %d.\n", cur_conn_cnt);
-								process(new_sock);
-								cur_conn_cnt--;
-								printf("[DEL] connection number : %d.\n", cur_conn_cnt);
-								exit(0);    // 这里必须要exit，仔细思考
-							default:
-								// parent
-								close(new_sock);
-						}
+					pid = fork();
+					switch (pid) {
+						case -1:
+							perror("[ERROR] fork");
+							exit(-1);
+						case 0:
+							// child
+							close(listenfd);
+							process(new_sock);
+							exit(0);    // 这里必须要exit，仔细思考
+						default:
+							// parent
+							close(new_sock);
 					}
 				} // end of TCP
 
@@ -215,13 +193,13 @@ int main(int argc, char* argv[]) {
 						exit(-1);
 					}
 
-					printf("[server] udp_recv_buf = %s.\n", udp_recv_buf);
+					printf("[UDP] received message = %s.\n", udp_recv_buf);
 
 					sprintf(udp_send_buf, "ECHO BACK : %s", udp_recv_buf);
 
 					// 最后一个参数不是指针
 					nsend = sendto(udpfd, udp_send_buf, strlen(udp_send_buf), 0, (struct sockaddr*)&cli_addr, cli_len);
-					printf("[server] udp_send_buf = %s.\n", udp_send_buf);
+					printf("[UDP] send message = %s.\n", udp_send_buf);
 
 
 				} //end of UDP
