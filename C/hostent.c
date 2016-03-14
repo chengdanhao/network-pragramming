@@ -9,7 +9,7 @@ int main(int argc, char* argv[]) {
 	char** p_addrlist = NULL;
 	char** p_alias = NULL;
 	struct hostent *p_hostent = NULL;
-	char ip_addr[INET_ADDRSTRLEN] = {'\0'};	// man page tells it
+	char ip_addr[INET_ADDRSTRLEN] = {'\0'};	// according to man page,we use INET_ADDRSTRLEN
 
 	if (argc != 2) {
 		printf("USAGE: %s <name/addr>.\n");
@@ -17,7 +17,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	if (NULL == (p_hostent = gethostbyname(argv[1]))) {
-		// perror在这里失效
+		// gethostbyname的错误保存在全局的h_errno里面
 		printf("gethostbyname error for host : %s, error : %s.\n",
 				argv[1], hstrerror(h_errno));
 		exit(-1);
@@ -29,8 +29,10 @@ int main(int argc, char* argv[]) {
 		printf("\t alias : %s\n", *p_alias);
 	}
 
+	// The type of address; always AF_INET or AF_INET6 at present.
 	switch (p_hostent->h_addrtype) {
 		case AF_INET:
+		case AF_INET6:
 			p_addrlist = p_hostent->h_addr_list;
 			while (NULL != *p_addrlist) {
 				printf("\taddress : %s\n", 
