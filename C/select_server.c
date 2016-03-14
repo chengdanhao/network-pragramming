@@ -158,12 +158,14 @@ int main(int argc, char* argv[]) {
 							close(sd);
 							FD_CLR(sd, &active_fds);
 							cli_socks[i] = -1;
+							cur_conn_cnt--;
 							break;
 						case 0:
 							printf("sock %d close the connection.", sd);
 							close(sd);
 							FD_CLR(sd, &active_fds);
 							cli_socks[i] = -1;
+							cur_conn_cnt--;
 							break;
 						default:
 							printf("recv (%ld) message: %s.\n", nrecv, recv_buf);
