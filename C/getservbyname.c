@@ -25,7 +25,7 @@ int main(int argc, char* argv[]) {
 
 	if (NULL == (p_hostent = gethostbyname(argv[1]))) {
 		// gethostbyname的错误保存在全局的h_errno里面
-		printf("gethostbyname error(%s), try to user inet_aton.\n", strerror(h_errno));
+		printf("gethostbyname error(%s), try to user inet_aton.\n", hstrerror(h_errno));
 
 		if (0 == inet_aton(argv[1], &inetaddr)) {
 			perror("inet_aton");
@@ -46,7 +46,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	while (NULL != *p_addrlist) {
-		if (sockfd = socket(AF_INET, SOCK_STREAM, 0)) {
+		if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 			perror("socket");
 			exit(EXIT_FAILURE);
 		}
@@ -56,13 +56,13 @@ int main(int argc, char* argv[]) {
 		servaddr.sin_port = p_servent->s_port;
 		memcpy(&servaddr.sin_addr, *p_addrlist, sizeof(struct in_addr));
 
-		printf("trying %s\n", inet_ntop(AF_INET, *p_addrlist, ip_addr, sizeof(ip_addr)));
+		printf("trying to connect %s\n", inet_ntop(AF_INET, *p_addrlist, ip_addr, sizeof(ip_addr)));
 
-		if (connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr))) {
+		if (0 == connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr))) {
 			break;
 		}
 
-		printf("connect error.\n");
+		perror("connect error");
 
 		p_addrlist++;
 	}
