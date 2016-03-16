@@ -12,24 +12,25 @@
 
 void process(int sock);
 void sig_child(int sig_no);
-void sig_inter(int sig_no);
+void sig_int_parent(int sig_no);
+void sig_int_child(int sig_no);
 
 int master_sock, new_sock;
 
 int main(int argc, char* argv[]) {
-	// int master_sock, new_sock, n;
 	int n;
 	struct sockaddr_in serv_addr, cli_addr;
 	socklen_t cli_len;
 	pid_t pid;
+	struct sigaction child_int;
 
 	signal(SIGCHLD, sig_child);
-	signal(SIGINT, sig_inter);
+	signal(SIGINT, sig_int_parent);
 
 	master_sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (master_sock < 0) {
 		perror("socket");
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
 	bzero((char*)&serv_addr, sizeof(serv_addr));
@@ -39,12 +40,12 @@ int main(int argc, char* argv[]) {
 
 	if (bind(master_sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
 		perror("bind");
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
 	if (listen(master_sock, 10) < 0) {
 		perror("listen");
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
 	cli_len = sizeof(cli_addr);
@@ -53,7 +54,7 @@ int main(int argc, char* argv[]) {
 		new_sock = accept(master_sock, (struct sockaddr*)&cli_addr, &cli_len);
 		if (new_sock < 0) {
 			perror("accpet");
-			exit(1);
+			exit(EXIT_FAILURE);
 		} else if (EINTR == errno){
 			continue;
 		}
@@ -62,12 +63,17 @@ int main(int argc, char* argv[]) {
 		switch (pid) {
 			case -1:
 				perror("fork");
-				exit(1);
+				close(new_sock);
+				exit(EXIT_FAILURE);
 			case 0:
 				// child
+				child_int.sa_handler = sig_int_child;
+				child_int.sa_flags = 0;
+				sigaction(SIGINT, &child_int, NULL);
+
 				close(master_sock);
 				process(new_sock);
-				exit(0);	// 这里必须要exit，仔细思考
+				exit(EXIT_SUCCESS);	// 这里必须要exit，仔细思考
 			default:
 				// parent
 				close(new_sock);
@@ -85,7 +91,7 @@ void process(int sock) {
 	n = read(sock, recv_buf, sizeof(recv_buf) - 1);
 	if (n < 0) {
 		perror("read");
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
 	printf("Received message: %s.\n", recv_buf);
@@ -93,7 +99,7 @@ void process(int sock) {
 	n = write(sock, response, strlen(response));
 	if (n < 0) {
 		perror("write");
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 }
 
@@ -108,14 +114,20 @@ void sig_child(int sig_no) {
 	while ((pid = waitpid(-1, &stat, WNOHANG)) > 0) {
 		printf("process (%d) terminate.\n", pid);
 	}
+
+	exit(EXIT_SUCCESS);
 }
 
-void sig_inter(int sig_no) {
+void sig_int_parent(int sig_no) {
+	printf("parent recv SIGINT signal.\n");
 
-	if (SIGINT == sig_no) {
-		printf("recv SIGINT signal.\n");
-	}
+	close(master_sock);
+	exit(EXIT_SUCCESS);
+}
+
+void sig_int_child(int sig_no) {
+	printf("child recv SIGINT signal.\n");
 
 	close(new_sock);
-	close(master_sock);
+	exit(EXIT_SUCCESS);
 }
