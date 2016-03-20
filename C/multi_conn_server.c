@@ -53,10 +53,11 @@ int main(int argc, char* argv[]) {
 	while(1) {
 		new_sock = accept(master_sock, (struct sockaddr*)&cli_addr, &cli_len);
 		if (new_sock < 0) {
-			perror("accpet");
+			if (EINTR == errno){
+				continue;
+			}
+			perror("accept");
 			exit(EXIT_FAILURE);
-		} else if (EINTR == errno){
-			continue;
 		}
 
 		pid = fork();
