@@ -18,7 +18,6 @@ int tcp_connect(const char* host, const char* serv) {
 	hints.ai_socktype = SOCK_STREAM;
 
 	if ((n == getaddrinfo(host, serv, &hints, &res)) != 0) {
-		// 真真gai_strerror真真真
 		printf("getaddrinfo error for %s, %s: %s.\n",
 				host, serv, gai_strerror(n));
 		exit(EXIT_FAILURE);
@@ -74,16 +73,33 @@ int main(int argc, char* argv[]) {
 
 
 	sin = (struct sockaddr_in*)&ss;
+	/*
 	if (sin->sin_family != AF_INET) {
-		printf("%s: thye type must be AF_INET.\n", __FUNCTION__);
+		printf("%s: the type must be AF_INET.\n", __FUNCTION__);
 		exit(EXIT_FAILURE);
 	}
+	*/
 
-	// warning: comparison between pointer and integer 
+	// warning: comparison between pointer and integer
 	// addr header file arpa/inet.h
-	if (NULL == inet_ntop(AF_INET, &(sin->sin_addr), str, sizeof(str))) {
-		perror("inet_ntop");
-		exit(EXIT_FAILURE);
+	switch (sin->sin_family) {
+		case AF_INET:
+			printf("AF_INET.\n");
+			if (NULL == inet_ntop(AF_INET, &(sin->sin_addr), str, sizeof(str))) {
+				perror("inet_ntop");
+				exit(EXIT_FAILURE);
+			}
+			break;
+		case AF_INET6:
+			printf("AF_INET6.\n");
+			if (NULL == inet_ntop(AF_INET6, &(sin->sin_addr), str, sizeof(str))) {
+				perror("inet_ntop");
+				exit(EXIT_FAILURE);
+			}
+			break;
+		default:
+			printf("unknown type.\n");
+			exit(EXIT_FAILURE);
 	}
 
 	// it's ok :)

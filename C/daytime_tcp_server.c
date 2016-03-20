@@ -18,7 +18,7 @@ int tcp_listen(const char* host, const char* serv, socklen_t* p_addrlen) {
 
 	bzero(&hints, sizeof(hints));
 	hints.ai_flags = AI_PASSIVE;
-	hints.ai_family = AF_INET;
+	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
 
 	if (0 != (n = getaddrinfo(host, serv, &hints, &res))) {
@@ -64,18 +64,21 @@ int tcp_listen(const char* host, const char* serv, socklen_t* p_addrlen) {
 
 int main(int argc, char* argv[]) {
 	int listenfd, connfd, n;
-	socklen_t len;
+	socklen_t len, addrlen;
 	char ip[BUF_SIZE] = {'\0'};
 	char time_buf[BUF_SIZE] = {'\0'};
 	time_t ticks;
 	struct sockaddr_storage cliaddr;
+	struct sockaddr* sa;
 
-	if (argc != 2) {
-		printf("USAGE: %s <service/port>\n", argv[0]);
+	if (2 == argc) {
+		listenfd = tcp_listen(NULL, argv[1], &addrlen);
+	} else if (3 == argc) {
+		listenfd = tcp_listen(argv[1], argv[2], &addrlen);
+	} else {
+		printf("USAGE: %s [host] <service/port>\n", argv[0]);
 		exit(EXIT_FAILURE);
 	}
-
-	listenfd = tcp_listen(NULL, argv[1], NULL);
 
 	while (1) {
 		len = sizeof(cliaddr);
@@ -88,7 +91,20 @@ int main(int argc, char* argv[]) {
 			exit(EXIT_FAILURE);
 		}
 
-		printf("connection from %s\n", inet_ntop(AF_INET, &cliaddr, ip, sizeof(ip)));
+		sa = (struct sockaddr*)&cliaddr;
+
+		switch (sa->sa_family) {
+			case AF_INET:
+				printf("connection from %s\n", inet_ntop(AF_INET, &cliaddr, ip, sizeof(ip)));
+				break;
+			case AF_INET6:
+				printf("connection from %s\n", inet_ntop(AF_INET6, &cliaddr, ip, sizeof(ip)));
+				break;
+			default:
+				printf("unknown type.\n");
+				//exit(EXIT_FAILURE);
+				continue;
+		}
 
 		ticks = time(NULL);
 		snprintf(time_buf, sizeof(time_buf), "%.24s\r\n", ctime(&ticks));
