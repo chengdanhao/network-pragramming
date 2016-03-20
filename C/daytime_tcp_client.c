@@ -18,7 +18,7 @@ int tcp_connect(const char* host, const char* serv) {
 	hints.ai_socktype = SOCK_STREAM;
 
 	if ((n == getaddrinfo(host, serv, &hints, &res)) != 0) {
-		// 真gai_strerror真真
+		// 真真gai_strerror真真真
 		printf("getaddrinfo error for %s, %s: %s.\n",
 				host, serv, gai_strerror(n));
 		exit(EXIT_FAILURE);
