@@ -9,6 +9,14 @@
 
 #define MAXLINE 256
 
+/*
+ * time-a.nist.gov
+ * time.Windows.com
+ * time.nist.gov
+ * time-nw.nist.gov
+ * timepb.nist.gov
+ */
+
 int main(int argc, char** argv)
 {
 	int socketfd, n;
@@ -17,7 +25,7 @@ int main(int argc, char** argv)
 
 	if(argc != 2)
 	{  
-		printf("USAGE : %s <ip address>\n");
+		printf("USAGE : %s <ip address>\n", argv[0]);
 		exit(EXIT_FAILURE);
 	}   
 
