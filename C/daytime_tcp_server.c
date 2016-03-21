@@ -71,9 +71,12 @@ int main(int argc, char* argv[]) {
 	struct sockaddr_storage cliaddr;
 	struct sockaddr* sa;
 
+	// 根据图11-8,领悟getaddrinfo的用法
 	if (2 == argc) {
+		// host为NULL，表示从本地搜索相应服务
 		listenfd = tcp_listen(NULL, argv[1], &addrlen);
 	} else if (3 == argc) {
+		// host不为NULL，从host指定主机上寻找相应服务
 		listenfd = tcp_listen(argv[1], argv[2], &addrlen);
 	} else {
 		printf("USAGE: %s [host] <service/port>\n", argv[0]);
