@@ -40,6 +40,7 @@ int main(int argc, char* argv[]) {
 		p_addrlist = (struct in_addr**)p_hostent->h_addr_list;
 	}
 
+	// 为什么./a.out baidu.com smb会报Success的错误
 	if (NULL == (p_servent = getservbyname(argv[2], "tcp"))) {
 		perror("getservbyname");
 		exit(EXIT_FAILURE);
