@@ -53,7 +53,9 @@ int main(int argc, char* argv[]) {
 	int sockfd, n;
 	socklen_t len;
 	struct sockaddr_storage ss;
-	struct sockaddr_in* sin;
+	struct sockaddr* sa;
+	struct sockaddr_in* sin4;
+	struct sockaddr_in6* sin6;
 	char str[BUF_SIZE] = {'\0'};
 	char recv_line[BUF_SIZE] = {'\0'};
 
@@ -72,27 +74,22 @@ int main(int argc, char* argv[]) {
 	}
 
 
-	sin = (struct sockaddr_in*)&ss;
-	/*
-	if (sin->sin_family != AF_INET) {
-		printf("%s: the type must be AF_INET.\n", __FUNCTION__);
-		exit(EXIT_FAILURE);
-	}
-	*/
-
+	sa = (struct sockaddr*)&ss;
 	// warning: comparison between pointer and integer
 	// addr header file arpa/inet.h
-	switch (sin->sin_family) {
+	switch (sa->sa_family) {
 		case AF_INET:
 			printf("AF_INET.\n");
-			if (NULL == inet_ntop(AF_INET, &(sin->sin_addr), str, sizeof(str))) {
+			sin4 = (struct sockaddr_in*)&ss;
+			if (NULL == inet_ntop(AF_INET, &(sin4->sin_addr), str, sizeof(str))) {
 				perror("inet_ntop");
 				exit(EXIT_FAILURE);
 			}
 			break;
 		case AF_INET6:
 			printf("AF_INET6.\n");
-			if (NULL == inet_ntop(AF_INET6, &(sin->sin_addr), str, sizeof(str))) {
+			sin6 = (struct sockaddr_in6*)&ss;
+			if (NULL == inet_ntop(AF_INET6, &(sin6->sin6_addr), str, sizeof(str))) {
 				perror("inet_ntop");
 				exit(EXIT_FAILURE);
 			}

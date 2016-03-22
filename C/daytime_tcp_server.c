@@ -70,6 +70,8 @@ int main(int argc, char* argv[]) {
 	time_t ticks;
 	struct sockaddr_storage cliaddr;
 	struct sockaddr* sa;
+	struct sockaddr_in* sin4;
+	struct sockaddr_in6* sin6;
 
 	// 根据图11-8,领悟getaddrinfo的用法
 	if (2 == argc) {
@@ -98,10 +100,12 @@ int main(int argc, char* argv[]) {
 
 		switch (sa->sa_family) {
 			case AF_INET:
-				printf("connection from %s\n", inet_ntop(AF_INET, &cliaddr, ip, sizeof(ip)));
+				sin4 = (struct sockaddr_in*)&cliaddr;
+				printf("connection from %s\n", inet_ntop(AF_INET, &(sin4->sin_addr), ip, sizeof(ip)));
 				break;
 			case AF_INET6:
-				printf("connection from %s\n", inet_ntop(AF_INET6, &cliaddr, ip, sizeof(ip)));
+				sin6 = (struct sockaddr_in6*)&cliaddr;
+				printf("connection from %s\n", inet_ntop(AF_INET6, &(sin6->sin6_addr), ip, sizeof(ip)));
 				break;
 			default:
 				printf("unknown type.\n");
