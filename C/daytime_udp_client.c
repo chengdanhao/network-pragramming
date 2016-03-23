@@ -44,7 +44,7 @@ int udp_client(const char* host, const char* serv,
 	}
 
 	*p_sa = (struct sockaddr*)malloc(res->ai_addrlen);
-	memcpy(p_sa, res->ai_addr, res->ai_addrlen);
+	memcpy(*p_sa, res->ai_addr, res->ai_addrlen);
 	*p_len = res->ai_addrlen;
 
 	freeaddrinfo(p_res);
@@ -59,6 +59,7 @@ int main(int argc, char* argv[]) {
 	socklen_t len;
 	struct sockaddr* sa;
 	struct sockaddr_in* sin;
+	struct sockaddr_in6* sin6;
 
 	if (argc != 3) {
 		printf("USAGE: %s <hostname/IP> <service/port>\n", argv[0]);
@@ -67,13 +68,25 @@ int main(int argc, char* argv[]) {
 
 	sockfd = udp_client(argv[1], argv[2], &sa, &len);
 
-	sin = (struct sockaddr_in*)sa;
-	printf("sending to %s.\n", inet_ntop(AF_INET, &(sin->sin_addr), ip, sizeof(ip)));
+	switch (sa->sa_family) {
+		case AF_INET:
+			sin = (struct sockaddr_in*)sa;
+			printf("[IPv4]sending to %s\n", inet_ntop(AF_INET, &(sin->sin_addr), ip, sizeof(ip)));
+			break;
+		case AF_INET6:
+			sin6 = (struct sockaddr_in6*)sa;
+			printf("[IPv6]sending to %s\n", inet_ntop(AF_INET6, &(sin6->sin6_addr), ip, sizeof(ip)));
+			break;
+		default:
+			printf("unknown type.\n");
+			break;
+	}
 
 	sendto(sockfd , "hello", sizeof("hello"), 0, sa, len);
 
 	n = recvfrom(sockfd, recv_line, sizeof(recv_line), 0, NULL, NULL);
 	recv_line[n] = '\0';
+	fputs(recv_line, stdout);
 
 	exit(EXIT_SUCCESS);
 }
