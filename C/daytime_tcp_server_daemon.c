@@ -15,7 +15,7 @@
 #define BUF_SIZE 256
 #define MAX_FD 64
 
-#define SYSLOG(...) syslog(LOG_INFO | LOG_LOCAL2, __VA_ARGS__)
+#define SYSLOG(...) syslog(LOG_INFO | LOG_DAEMON, __VA_ARGS__)
 
 int daemon_init(const char* ident, int facility) {
 	int i;
@@ -127,7 +127,7 @@ int main(int argc, char* argv[]) {
 	struct sockaddr_in6* sin6;
 
 	if (argc < 2 || argc > 3) {
-		SYSLOG("USAGE: %s [host] <service/port>\n", argv[0]);
+		printf("USAGE: %s [host] <service/port>\n", argv[0]);
 		exit(EXIT_FAILURE);
 	}
 
@@ -171,6 +171,7 @@ int main(int argc, char* argv[]) {
 
 		ticks = time(NULL);
 		snprintf(time_buf, sizeof(time_buf), "%.24s\r\n", ctime(&ticks));
+		SYSLOG("time is %s\n", time_buf);
 		n = write(connfd, time_buf, strlen(time_buf));
 		if (n < 0) {
 			if (EINTR == errno){
