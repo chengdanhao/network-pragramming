@@ -55,6 +55,14 @@ int daemon_init(const char* ident, int facility) {
 
 
 	// redirecting stdin, stdout and stderr to /dev/null
+	/* Presumably file descriptors 0, 1, and 2 have already been closed when this
+	 * code executes, and there are no other threads which might be allocating new
+	 * file descriptors. In this case, since open is required to always allocate
+	 * the lowest available file descriptor number, these three calls to open will
+	 * yield file descriptors 0, 1, and 2, unless they fail.
+	 *
+	 * http://stackoverflow.com/questions/4263173/redirecting-stdin-stdout-stderr-to-dev-null-in-c
+	 */
 	open("/dev/null", O_RDONLY);
 	open("/dev/null", O_RDWR);
 	open("/dev/null", O_RDWR);
