@@ -25,6 +25,8 @@ int main(int argc, char* argv[]) {
 
 	bzero(&addr1, sizeof(addr1));
 	addr1.sun_family = AF_LOCAL;
+
+	// 第三个参数为什么需要那么大？
 	strncpy(addr1.sun_path, argv[1], sizeof(addr1.sun_path) - 1);
 
 
