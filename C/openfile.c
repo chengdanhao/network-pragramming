@@ -43,6 +43,7 @@ ssize_t write_fd(int fd, void *ptr, size_t nbytes, int sendfd) {
 
 int main(int argc, char* argv[]) {
 	int fd;
+	char send_buf[BUF_SIZE] = "hellowrold";
 
 	if (4 != argc) {
 		printf("USAGE : %s <sockfd> <filename> <mode>\n", argv[0]);
@@ -54,7 +55,10 @@ int main(int argc, char* argv[]) {
 		exit(errno > 0 ? errno : 255);
 	}
 
-	if (write_fd(atoi(argv[1]), "", 1, fd) < 0) {
+	fprintf(stdout, "<recv> %s %s %s %s\n", argv[0], argv[1], argv[2], argv[3]);
+	fprintf(stdout, "<send> %s %d\n", send_buf, fd);
+
+	if (write_fd(atoi(argv[1]), send_buf, strlen(send_buf), fd) < 0) {
 		perror("write_fd");
 		exit(errno > 0 ? errno : 255);
 	}
