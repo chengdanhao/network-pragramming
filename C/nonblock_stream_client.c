@@ -5,11 +5,14 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <time.h>
+#include <sys/un.h>			// sockaddr_un
 #include <sys/time.h>
 #include <sys/socket.h>
 #include <sys/select.h>
 #include <sys/types.h>
+#include <arpa/inet.h>
 
+#define PORT 1234
 #define MAX_SIZE 1024
 
 char* gf_time() {
@@ -30,10 +33,8 @@ char* gf_time() {
 	return str;
 }
 
-int max(int a, int b, int c) {
-	int d = 0;
-
-	return (d = (a > b ? a : b)) > c ? d : c;
+int max(int a, int b) {
+	return a > b ? a : b;
 }
 
 void str_cli(FILE *fp, int sockfd) {
@@ -57,7 +58,7 @@ void str_cli(FILE *fp, int sockfd) {
 	friptr = froptr = fr;
 	stdineof = 0;
 
-	maxfd = max(STDIN_FILENO, STDOUT_FILENO, sockfd) + 1;
+	maxfd = max(max(STDIN_FILENO, STDOUT_FILENO), sockfd) + 1;
 	while (1) {
 		FD_ZERO(&rset);
 		FD_ZERO(&wset);
@@ -156,7 +157,32 @@ void str_cli(FILE *fp, int sockfd) {
 }
 
 int main(int argc, char* argv[]) {
+	pid_t pid;
+	int sockfd, connfd;
+	socklen_t clilen;
+	struct sockaddr_in servaddr, cliaddr;
+
+	if (2 != argc) {
+		printf("USAGE : %s <IP>\n", argv[0]);
+		exit(EXIT_FAILURE);
+	}
+
+	if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+		perror("socket");
+		exit(EXIT_FAILURE);
+	}
+
+	bzero(&servaddr, sizeof(servaddr));
+	servaddr.sin_family = AF_INET;
+	servaddr.sin_port = htons(PORT);
+	inet_pton(AF_INET, argv[1], &servaddr.sin_addr);
+
+	if (connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) < 0) {
+		perror("connect");
+		exit(EXIT_FAILURE);
+	}
+
+	str_cli(stdin, sockfd);
 
 	exit(EXIT_SUCCESS);
 }
-
