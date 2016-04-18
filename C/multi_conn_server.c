@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h> 		//read, write
 #include <signal.h>
+#include <sys/wait.h>
 #include <errno.h>			// errno
 #include <sys/socket.h>
 #include <arpa/inet.h>		// hotnl, hotns

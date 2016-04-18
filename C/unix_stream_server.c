@@ -5,6 +5,7 @@
 #include <signal.h>
 #include <errno.h>
 #include <sys/un.h>			// sockaddr_un
+#include <sys/wait.h>			// waitpid
 #include <sys/types.h>
 #include <sys/socket.h>
 
