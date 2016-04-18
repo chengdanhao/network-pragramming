@@ -11,13 +11,26 @@
 #define BUF_LEN 256
 
 void str_echo(int sockfd) {
-	ssize_t n;
+	ssize_t nread;
 	char buf[BUF_LEN];
 
 	bzero(buf, sizeof(buf));
-	n = read(sockfd, buf, sizeof(buf) - 1);
-	printf("echo back : <%ld> %s.\n", n, buf);
-	write(sockfd, buf, n);
+	while (1) {
+		nread = read(sockfd, buf, sizeof(buf) - 1);
+		if (nread < 0) {
+			if (EINTR == errno) {
+				continue;
+			}
+
+			perror("read");
+		} else if (0 == nread) {
+			close(sockfd);
+			break;
+		}
+
+		write(sockfd, buf, nread);
+		printf("echo socket (%d) : <%ld> %s.\n", sockfd, nread, buf);
+	}
 }
 
 int main() {
