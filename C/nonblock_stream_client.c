@@ -12,7 +12,7 @@
 #include <sys/types.h>
 #include <arpa/inet.h>
 
-#define PORT 1234
+#define PORT 10001
 #define MAX_SIZE 1024
 
 char* gf_time() {
@@ -49,10 +49,10 @@ void str_cli(FILE *fp, int sockfd) {
 	fcntl(sockfd, F_SETFL, val | O_NONBLOCK);
 
 	val = fcntl(STDIN_FILENO, F_GETFL, 0);
-	fcntl(sockfd, F_SETFL, val | O_NONBLOCK);
+	fcntl(STDIN_FILENO, F_SETFL, val | O_NONBLOCK);
 
 	val = fcntl(STDOUT_FILENO, F_GETFL, 0);
-	fcntl(sockfd, F_SETFL, val | O_NONBLOCK);
+	fcntl(STDOUT_FILENO, F_SETFL, val | O_NONBLOCK);
 
 	toiptr = tooptr = to;
 	friptr = froptr = fr;
@@ -82,7 +82,7 @@ void str_cli(FILE *fp, int sockfd) {
 		select (maxfd, &rset, &wset, NULL, NULL);
 
 		if (FD_ISSET(STDIN_FILENO, &rset)) {
-			if (nread = read(STDIN_FILENO, toiptr, &to[MAX_SIZE] - toiptr) < 0) {
+			if ((nread = read(STDIN_FILENO, toiptr, &to[MAX_SIZE] - toiptr)) < 0) {
 				if (EWOULDBLOCK != errno) {
 					printf("read error on stdin\n");
 					exit(EXIT_FAILURE);
@@ -94,14 +94,14 @@ void str_cli(FILE *fp, int sockfd) {
 					shutdown(sockfd, SHUT_WR);
 				}
 			} else {
-				fprintf(stderr, "%s : read %d bytes form stdin\n", gf_time(), nread);
+				fprintf(stderr, "%s : read %d bytes from stdin\n", gf_time(), nread);
 				toiptr += nread;
 				FD_SET(sockfd, &wset);
 			}
 		}
 
 		if (FD_ISSET(sockfd, &rset)) {
-			if (nread = read(sockfd, friptr, &fr[MAX_SIZE] - friptr) < 0) {
+			if ((nread = read(sockfd, friptr, &fr[MAX_SIZE] - friptr)) < 0) {
 				if (EWOULDBLOCK != errno) {
 					printf("read error on socket\n");
 					exit(EXIT_FAILURE);
@@ -115,7 +115,7 @@ void str_cli(FILE *fp, int sockfd) {
 					exit(EXIT_FAILURE);
 				}
 			} else {
-				fprintf(stderr, "%s : read %d bytes form socket\n", gf_time(), nread);
+				fprintf(stderr, "%s : read %d bytes from socket\n", gf_time(), nread);
 				friptr += nread;
 				FD_SET(STDOUT_FILENO, &wset);
 			}
@@ -144,7 +144,7 @@ void str_cli(FILE *fp, int sockfd) {
 				}
 			} else {
 				fprintf(stderr, "%s wrote %d bytes to stdout\n", gf_time(), nwritten);
-				froptr += nwritten;
+				tooptr += nwritten;
 				if (tooptr == toiptr) {
 					tooptr = toiptr = to;
 					if (stdineof) {
@@ -163,7 +163,7 @@ int main(int argc, char* argv[]) {
 	struct sockaddr_in servaddr, cliaddr;
 
 	if (2 != argc) {
-		printf("USAGE : %s <IP>\n", argv[0]);
+		printf("USAGE : %s <hostname>\n", argv[0]);
 		exit(EXIT_FAILURE);
 	}
 
