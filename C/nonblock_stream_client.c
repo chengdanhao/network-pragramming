@@ -5,7 +5,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <time.h>
-#include <sys/un.h>			// sockaddr_un
+#include <signal.h>
 #include <sys/time.h>
 #include <sys/socket.h>
 #include <sys/select.h>
@@ -35,6 +35,46 @@ char* gf_time() {
 
 int max(int a, int b) {
 	return a > b ? a : b;
+}
+
+void fork_str_cli(FILE *fp, int sockfd) {
+	ssize_t n;
+	pid_t pid;
+	char sendline[MAX_SIZE], recvline[MAX_SIZE];
+
+	/* server->stdout */
+	if (0 == (pid = fork())) {
+		while (1) {
+			n = read(sockfd, recvline, sizeof(recvline));
+			if (n < 0) {
+				if (EINTR == errno) {
+					continue;
+				}
+
+				perror("read");
+				exit(EXIT_FAILURE);
+			} else if (0 == n) {
+				break;
+			}
+
+			// 1. 服务器异常中止，此时父进程没必要从stdin读取数据了
+			// 2. 子进程异常中止，防止父进程收到一个SIGCHLD信号。(不懂)
+			kill(getppid(), SIGTERM);
+
+			fputs(recvline, stdout);
+		}
+
+		exit(EXIT_SUCCESS);
+	}
+
+	/* stdin -> server */
+	while (NULL != fgets(sendline, sizeof(sendline), stdin)) {
+		write(sockfd, sendline, strlen(sendline));
+	}
+
+	shutdown(sockfd, SHUT_WR);	// EOF on stdin, send FIN
+	pause();
+	exit(EXIT_SUCCESS);
 }
 
 void str_cli(FILE *fp, int sockfd) {
@@ -162,6 +202,8 @@ int main(int argc, char* argv[]) {
 	socklen_t clilen;
 	struct sockaddr_in servaddr, cliaddr;
 
+	// ./client localhost < filename
+	// 将filename文件中的内容作为标准输入传递给client命令
 	if (2 != argc) {
 		printf("USAGE : %s <hostname>\n", argv[0]);
 		exit(EXIT_FAILURE);
@@ -182,7 +224,9 @@ int main(int argc, char* argv[]) {
 		exit(EXIT_FAILURE);
 	}
 
-	str_cli(stdin, sockfd);
+	// str_cli(stdin, sockfd);
+	fork_str_cli(stdin, sockfd);
+
 
 	exit(EXIT_SUCCESS);
 }
