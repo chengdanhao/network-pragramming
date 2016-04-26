@@ -66,9 +66,25 @@ void sock_ntop_host(struct sockaddr* sa, char ip[]) {
 	}
 }
 
+void free_ifi_info(struct ifi_info* ifihead) {
+	struct ifi_info *ifi, *ifinext;
+
+	for (ifi = ifihead; NULL != ifi; ifi = ifinext) {
+		if (NULL != ifi->ifi_addr)
+			free(ifi->ifi_addr);
+		if (NULL != ifi->ifi_brdaddr)
+			free(ifi->ifi_brdaddr);
+		if (NULL != ifi->ifi_dstaddr)
+			free(ifi->ifi_dstaddr);
+
+		ifinext = ifi->ifi_next;
+		free(ifi);
+	}
+}
+
 struct ifi_info* get_ifi_info(int family, int doaliases) {
 	struct ifi_info *ifi, *ifihead, **ifipnext;
-	int sockfd, len, lastlen, flags, myflags, idex = 0, hlen = 0;
+	int sockfd, len, lastlen, flags, myflags, idx = 0, hlen = 0;
 	char *ptr, *buf, lastname[IFNAMSIZ], *cptr, *haddr, *sdlname;
 	struct ifconf ifc;
 	struct ifreq *ifr, ifrcopy;
@@ -94,7 +110,7 @@ struct ifi_info* get_ifi_info(int family, int doaliases) {
 		ifc.ifc_buf = buf;
 		if (ioctl(sockfd, SIOCGIFCONF, &ifc) < 0) {
 			if (errno != EINVAL || lastlen != 0) {
-				printf("ioctl error\n");
+				perror("ioctl");
 				exit(EXIT_FAILURE);
 			} else {
 				if (ifc.ifc_len == lastlen) {	// buffer is big enough
@@ -111,7 +127,7 @@ struct ifi_info* get_ifi_info(int family, int doaliases) {
 		ifipnext = &ifihead;
 		lastname[0] = 0;
 		sdlname = NULL;
-		for (prt = buf; ptr < buf + ifc.ifc_len; ) {
+		for (ptr = buf; ptr < buf + ifc.ifc_len; ) {
 			ifr = (struct ifreq *) ptr;
 
 			switch (ifr->ifr_addr.sa_family) {
@@ -131,7 +147,7 @@ struct ifi_info* get_ifi_info(int family, int doaliases) {
 			}
 
 			myflags = 0;
-			if (NULL != (cptr = strchr(ifr->ifr_name, ":"))) {
+			if (NULL != (cptr = strchr(ifr->ifr_name, ':'))) {
 				*cptr = 0;
 			}
 			if (0 == strncmp(lastname, ifr->ifr_name, IFNAMSIZ)) {
@@ -148,6 +164,69 @@ struct ifi_info* get_ifi_info(int family, int doaliases) {
 			if (0 == (flags & IFF_UP)) {
 				continue;
 			}
+
+			ifi = (struct ifi_info*)calloc(1, sizeof(struct ifi_info));
+			*ifipnext = ifi;
+			ifipnext = &ifi->ifi_next;
+
+			ifi->ifi_flags = flags;
+			ifi->ifi_myflags = flags;
+			ifi->ifi_mtu = 0;
+
+			memcpy(ifi->ifi_name, ifr->ifr_name, IFI_NAME);
+			ifi->ifi_name[IFI_NAME - 1] = '\0';
+
+			/* If the sockaddr_dl is from a different interface, ignore it */
+			if (NULL == sdlname || 0 != strcmp(sdlname, ifr->ifr_name)) {
+				idx = hlen = 0;
+			}
+			ifi->ifi_index = idx;
+			ifi->ifi_hlen = hlen;
+			if (ifi->ifi_hlen > IFI_HADDR) {
+				ifi->ifi_hlen = IFI_HADDR;
+			}
+			if (hlen > 0) {
+				memcpy(ifi->ifi_haddr, haddr, ifi->ifi_hlen);
+			}
+
+			switch (ifr->ifr_addr.sa_family) {
+				case AF_INET:
+					sinptr = (struct sockaddr_in*) &ifr->ifr_addr;
+					ifi->ifi_addr = calloc(1, sizeof(struct sockaddr_in));
+					memcpy(ifi->ifi_addr, sinptr, sizeof(struct sockaddr_in));
+
+					if (flags & IFF_BROADCAST) {
+						ioctl(sockfd, SIOCGIFBRDADDR, &ifrcopy);
+						sinptr = (struct sockaddr_in*) &ifrcopy.ifr_broadaddr;
+						memcpy(ifi->ifi_brdaddr, sinptr, sizeof(struct sockaddr_in));
+					}
+
+					if (flags & IFF_POINTOPOINT) {
+						ioctl(sockfd, SIOCGIFDSTADDR, &ifrcopy);
+						sinptr = (struct sockaddr_in *) &ifrcopy.ifr_dstaddr;
+						ifi->ifi_dstaddr = calloc(1, sizeof(struct sockaddr_in));
+						memcpy(ifi->ifi_dstaddr, sinptr, sizeof(struct sockaddr_in));
+					}
+
+					break;
+				case AF_INET6:
+					sin6ptr = (struct sockaddr_in6 *) &ifr->ifr_addr;
+					ifi->ifi_addr = calloc(1, sizeof(struct sockaddr_in6));
+					memcpy(ifi->ifi_addr, sin6ptr, sizeof(struct sockaddr_in6));
+
+					if (flags & IFF_POINTOPOINT) {
+						ioctl(sockfd, SIOCGIFDSTADDR, &ifrcopy);
+						sin6ptr = (struct sockaddr_in6 *) &ifrcopy.ifr_dstaddr;
+						ifi->ifi_dstaddr = calloc(1, sizeof(struct sockaddr_in6));
+						memcpy(ifi->ifi_dstaddr, sin6ptr, sizeof(struct sockaddr_in6));
+					}
+					break;
+				default:
+					break;
+			}
+
+			free(buf);
+			free(ifihead);
 		}
 	}
 }
@@ -176,7 +255,7 @@ int main(int argc, char *argv[]) {
 	doaliases = atoi(argv[2]);
 
 	for (ifihead = ifi = get_ifi_info(family, doaliases);
-		ifi != NULL; ifi = ifi->ifi_next) {
+			ifi != NULL; ifi = ifi->ifi_next) {
 		printf("%s: ", ifi->ifi_name);
 		if (0 != ifi->ifi_index) {
 			printf("(%d) ", ifi->ifi_index);
