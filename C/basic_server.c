@@ -55,7 +55,7 @@ int main() {
 
 	printf("Receive message : %s.\n", recv_buf);
 
-	char *response = "I got your message";
+	char *response = recv_buf;
 	n = write(new_sock, response, strlen(response));
 	if (n < 0) {
 		perror("write");

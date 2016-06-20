@@ -65,9 +65,10 @@ int main(int argc, char* argv[]) {
 			exit(-1);
 		}
 
+loop:
 		// recv response
 		bzero(recv_buf, sizeof(recv_buf));
-		n = read(master_sock, recv_buf, sizeof(recv_buf) - 1);
+		n = read(master_sock, recv_buf, sizeof(recv_buf));
 		if (0 == n) {
 			printf("server has closed.\n");
 			close(master_sock);
@@ -75,6 +76,16 @@ int main(int argc, char* argv[]) {
 		} else if (n < 0) {
 			perror("read");
 			exit(-1);
+		} else {
+			// printf("[%d] %s\n", n, recv_buf);
+			if (recv_buf[n] == '\0')
+			{
+				printf("Read Over\n");
+			}
+			else
+			{
+				goto loop;
+			}
 		}
 
 		printf("Receive message: %s.\n", recv_buf);
