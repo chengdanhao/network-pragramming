@@ -16,22 +16,16 @@ typedef unsigned char u8;
 typedef unsigned short u16;
 typedef unsigned int u32;
 
-int sockfd;
 
 int main()
 {
+	int sockfd = 0;
 	struct sockaddr_in serv_addr;
 	struct hostent* server;
 
 	while (1) 
 	{
 		printf(">>>> sockfd = %d\n", sockfd);
-
-		if (sockfd > 0)
-		{
-			goto send_data;
-
-		}
 
 		printf(">>>> recreate socket\n");
 		sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -57,12 +51,11 @@ int main()
 
 		if (connect(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0)
 		{
-			printf("%s : error connect\n", __func__);
+			perror("connect");
 			goto exit;
 
 		}
 
-send_data:
 		printf(">>>> directly send\n");
 		if (write(sockfd, STR, strlen(STR)) < 0) {
 			printf("error write\n");
@@ -72,10 +65,10 @@ send_data:
 
 		printf("send msg : %s\n", STR);
 exit:
-		//close(sockfd);
+		close(sockfd);
 		printf("\n");
 
-		sleep(2);
+		usleep(10);
 	}
 
 	return 0;
