@@ -11,8 +11,7 @@
 
 #define MAXEVENTS 64
 
-	static int
-make_socket_non_blocking (int sfd)
+static int make_socket_non_blocking (int sfd)
 {
 	int flags, s;
 
@@ -34,8 +33,7 @@ make_socket_non_blocking (int sfd)
 	return 0;
 }
 
-	static int
-create_and_bind (char *port)
+static int create_and_bind (char *port)
 {
 	struct addrinfo hints;
 	struct addrinfo *result, *rp;
@@ -80,8 +78,7 @@ create_and_bind (char *port)
 	return sfd;
 }
 
-	int
-main (int argc, char *argv[])
+int main (int argc, char *argv[])
 {
 	int sfd, s;
 	int efd;
