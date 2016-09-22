@@ -11,23 +11,68 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 
-#define DELAY 5            /*seconds */
-int srv_fd, got_reply = 1;
+#define ALARM_INTERVAL 3
+#define PEER_EXPIRE_CNT 3
+
+int port = 0;
+char ip[16] = {0};
+
+int conn_fd = 0;
+int got_reply = 1;
+int expire_cnt = 0;
+int already_reset = 0;
+
+int connect_server()
+{
+	struct sockaddr_in addr;
+
+	conn_fd = socket(AF_INET, SOCK_STREAM, 0);
+	if (fcntl(conn_fd, F_SETOWN, getpid()) != 0) {	// claim SIGIO/SIGURG signals
+		perror("Can't claim SIGURG and SIGIO");
+	}
+
+	bzero(&addr, sizeof(addr));
+	addr.sin_family = AF_INET;
+	addr.sin_port = htons(port);
+	inet_aton(ip, &addr.sin_addr);
+
+	if (connect(conn_fd, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
+		perror("connect");
+		close(conn_fd);
+		return -1;;
+	}
+
+	return 0;
+}
 
 void sig_handler(int signo)
 {
+	char line[1024] = {0};
+	char buf[1024] = {0};
+	int bytes=0;
+
 	if (signo == SIGURG) {
 		char c;
-		recv(srv_fd, &c, sizeof(c), MSG_OOB);
+
+		recv(conn_fd, &c, sizeof(c), MSG_OOB);
 		got_reply = (c == 's');			// got server heartbeat
+		already_reset = 0;
+
 		printf("[server is alive]\n");
 	} else if (signo == SIGALRM) {		// send heartbeat periodically
+		alarm(ALARM_INTERVAL);
+
 		if (got_reply) {
-			send(srv_fd, "c", 1, MSG_OOB);
-			alarm(DELAY);
+			send(conn_fd, "c", 1, MSG_OOB);
 			got_reply = 0;
 		} else {
-			fprintf(stderr, "Lost connection to server!");
+			close(conn_fd);
+
+			if (0 == already_reset)
+			{
+				printf("RESET PEER : lost connection to server!\n");
+				already_reset = 1;
+			}
 		}
 	}
 }
@@ -36,8 +81,7 @@ int main(int argc, char *argv[])
 {
 	struct sockaddr_in addr;
 	struct sigaction act;
-	int bytes;
-	char line[100];
+	char buf[1024];
 
 	if (argc != 3) {
 		printf("usage: %s <ip> <port>\n", argv[0]);
@@ -50,31 +94,25 @@ int main(int argc, char *argv[])
 	sigaction(SIGURG, &act, 0);
 	sigaction(SIGALRM, &act, 0);
 
-	srv_fd = socket(AF_INET, SOCK_STREAM, 0);
-	if (fcntl(srv_fd, F_SETOWN, getpid()) != 0) {	// claim SIGIO/SIGURG signals
-		perror("Can't claim SIGURG and SIGIO");
-	}
+	strcpy(ip, argv[1]);
+	port = atoi(argv[2]);
 
-	bzero(&addr, sizeof(addr));
-	addr.sin_family = AF_INET;
-	addr.sin_port = htons(atoi(argv[2]));
-	inet_aton(argv[1], &addr.sin_addr);
-
-	if (connect(srv_fd, (struct sockaddr *)&addr, sizeof(addr)) == 0) {
-		alarm(DELAY);
-
-		// simply echo back
-		do {
-			gets(line);
-			send(srv_fd, line, strlen(line), 0);
-			bytes = recv(srv_fd, line, sizeof(line), 0);
-			printf("recv echo back [%s]\n", line);
+	while (1) {
+		if (0 == connect_server()) {
+			alarm(ALARM_INTERVAL);
+			got_reply = 1;
+			recv(conn_fd, buf, sizeof(buf), 0);
+			got_reply = 0;
+		} else if (PEER_EXPIRE_CNT == expire_cnt++ && 0 == already_reset) {
+			printf("RESET PEER : maybe not start up.\n");
+			expire_cnt = 0;
 		}
-		while (bytes > 0);
-	} else {
-		perror("connect failed");
+
+		// SIGARLM will make sleep invalid, but we should better and
+		// this line to avoid FAST while loop
+		sleep(3);
 	}
 
-	close(srv_fd);
+	close(conn_fd);
 	return 0;
 }
